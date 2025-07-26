@@ -39,6 +39,7 @@ def login_user():
         return jsonify({"error": "Invalid email or password"}), 401
 
     session['user_id'] = user.id
+    session['user_name'] = user.full_name
     return jsonify({"message": "Login successful", "user": user.to_dict()}), 200
 
 # === USERS ===
