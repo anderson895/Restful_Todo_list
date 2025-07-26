@@ -1,0 +1,191 @@
+{% include "components/header.html" %}
+
+<main class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+
+      <!-- Todo Card -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-primary text-white text-center">
+          <h5 class="mb-0">Todo List</h5>
+        </div>
+
+        <div class="card-body">
+
+          <!-- Progress Bar Section -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Progress: 0%</label>
+            <div class="progress">
+              <div class="progress-bar bg-success" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                0%
+              </div>
+            </div>
+          </div>
+
+          <!-- Add Task -->
+          <form id="addTaskForm" class="input-group mb-3">
+            <input type="text" id="taskInput" class="form-control" placeholder="Add new task..." required>
+            <button class="btn btn-primary" type="submit">Add</button>
+          </form>
+
+          <!-- Search Task -->
+          <div class="input-group mb-4">
+            <input type="text" id="searchInput" class="form-control" placeholder="Search task...">
+            <button class="btn btn-outline-secondary" type="button" id="clearSearch">Clear</button>
+          </div>
+
+          <!-- Task Table -->
+          <div class="table-responsive">
+            <table id="taskTable" class="table table-bordered align-middle mb-0">
+              <thead class="table-light text-center">
+                <tr>
+                  <th style="width: 60%">Task</th>
+                  <th style="width: 20%">Status</th>
+                  <th style="width: 20%">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="taskTableBody">
+                <tr>
+                  <td colspan="3" class="text-center text-muted">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script>
+  let allTasks = []; // store all tasks here for filtering
+
+  function renderTasks(tasks) {
+    const tbody = $('#taskTableBody');
+    tbody.empty();
+
+    let done = 0;
+
+    if (tasks.length === 0) {
+      tbody.append(`
+        <tr>
+          <td colspan="3" class="text-center text-muted">No tasks found.</td>
+        </tr>
+      `);
+      $('.progress-bar').css('width', '0%').text('0%').attr('aria-valuenow', 0);
+      $('.form-label.fw-semibold').text('Progress: 0%');
+      return;
+    }
+
+    tasks.forEach(task => {
+      const row = `
+        <tr>
+          <td class="${task.is_done ? 'text-decoration-line-through text-muted' : ''}">
+            ${task.title}
+          </td>
+          <td class="text-center">
+            ${task.is_done
+              ? '<span class="badge bg-success">Done</span>'
+              : '<span class="badge bg-warning text-dark">Pending</span>'}
+          </td>
+          <td class="text-center">
+            <button class="btn btn-sm btn-outline-success me-1 mark-done" data-id="${task.id}" data-status="${task.is_done}" title="Toggle Status">✓</button>
+            <button class="btn btn-sm btn-outline-danger delete-task" data-id="${task.id}" title="Delete">🗑</button>
+          </td>
+        </tr>`;
+      tbody.append(row);
+      if (task.is_done) done++;
+    });
+
+    const percent = Math.floor((done / tasks.length) * 100);
+    $('.progress-bar')
+      .css('width', percent + '%')
+      .text(percent + '%')
+      .attr('aria-valuenow', percent);
+    $('.form-label.fw-semibold').text('Progress: ' + percent + '%');
+  }
+
+  function fetchTasks() {
+    $.get('/api/tasks', function (tasks) {
+      allTasks = tasks;
+      renderTasks(allTasks);
+    }).fail(function () {
+      $('#taskTableBody').html('<tr><td colspan="3" class="text-center text-danger">Failed to load tasks.</td></tr>');
+    });
+  }
+
+  // Add Task
+  $('#addTaskForm').submit(function (e) {
+    e.preventDefault();
+    const title = $('#taskInput').val().trim();
+    if (!title) return;
+
+    $.ajax({
+      url: '/api/tasks',
+      method: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify({ title: title }),
+      success: function () {
+        $('#taskInput').val('');
+        fetchTasks();
+      },
+      error: function () {
+        alert('Failed to add task.');
+      }
+    });
+  });
+
+  // Toggle task is_done
+  $('#taskTableBody').on('click', '.mark-done', function () {
+    const id = $(this).data('id');
+    const currentStatus = $(this).data('status');
+
+    $.ajax({
+      url: '/api/tasks/' + id,
+      method: 'PUT',
+      contentType: 'application/json',
+      data: JSON.stringify({ is_done: !currentStatus }),
+      success: fetchTasks,
+      error: function () {
+        alert('Failed to update task status.');
+      }
+    });
+  });
+
+  // Delete task
+  $('#taskTableBody').on('click', '.delete-task', function () {
+    const id = $(this).data('id');
+
+    $.ajax({
+      url: '/api/tasks/' + id,
+      method: 'DELETE',
+      success: fetchTasks,
+      error: function () {
+        alert('Failed to delete task.');
+      }
+    });
+  });
+
+  // Search filter
+  $('#searchInput').on('input', function () {
+    const query = $(this).val().toLowerCase();
+    const filteredTasks = allTasks.filter(task => task.title.toLowerCase().includes(query));
+    renderTasks(filteredTasks);
+  });
+
+  // Clear search
+  $('#clearSearch').on('click', function () {
+    $('#searchInput').val('');
+    renderTasks(allTasks);
+  });
+
+  // Initial load
+  $(document).ready(fetchTasks);
+</script>
+
+{% include "components/footer.html" %}
