@@ -43,7 +43,7 @@ def home():
         return redirect(url_for("login"))
 
     user_id = session["user_id"]
-    user_name = session.get("user_name", "User")  # Fallback if name not stored
+    user_name = session.get("user_name", "User")  
 
     tasks = Task.query.filter_by(user_id=user_id).all()
 
